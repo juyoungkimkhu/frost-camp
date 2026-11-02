@@ -1151,33 +1151,40 @@ function migrateGain(){return 2+Math.floor(G.stats.bosses/3)+Math.max(0,G.up.cam
 function doMigrate(newCls){const keep={medals:G.medals+migrateGain(),biome:G.biome+1,up:G.up,relics:G.relics,element:G.element,cls:newCls||G.cls,life:Object.assign({},G.life,{migrations:(G.life.migrations||0)+1})};newGame(0,keep);G.live=true;save(true);}
 
 // ===== challenge mode: endless waves, one life, score · level-ups give a pick of 3 =====
-const CH_WAVE_T=22;
-function chalBand(){return Math.min(BANDS.length-1,Math.floor((G.ch.wave-1)/3));}
+const CH_WAVE_T=14;// waves come fast, and the stream between them never stops
+function chalBand(){return clamp(Math.floor((G.ch.wave-1)/3),0,BANDS.length-1);}
 function chalType(){return pick(BANDS[chalBand()]);}
 function chalLevel(){const w=G.ch.wave;return Math.max(1,Math.round(1+w*0.8+Math.max(0,w-12)*0.4));}
-function xpNeed(l){return Math.round(6+l*4+Math.pow(l,1.5));}
+function xpNeed(l){return Math.round(8+l*6+Math.pow(l,1.8));}
 function chalMult(){return 1+Math.min(G.ch.combo,40)*0.05;}
 function updateChallenge(dt){const C=G.ch,p=G.p;if(C.over)return;
   C.elapsed+=dt;if(G.pickDelay>0)G.pickDelay-=dt;
   if(C.comboT>0){C.comboT-=dt;if(C.comboT<=0)C.combo=0;}
   updatePlayer(dt);updateDuel(dt);
-  if(!G.duel)C.t-=dt;if(C.t<=0&&!p.dead){C.t=CH_WAVE_T-Math.min(8,C.wave*0.25);nextWave();}
+  if(!G.duel){C.t-=dt;const alive=G.enemies.filter(e=>!e.boss).length;if(alive<6+C.wave&&C.wave>0)C.t-=dt*2;}// almost cleared? the next wave arrives early
+  if(C.t<=0&&!p.dead){C.t=CH_WAVE_T-Math.min(5,C.wave*0.2);nextWave();}
+  if(!p.dead&&!G.duel)chalStream(dt);
   for(const e of G.enemies)updateEnemy(e,dt);
   separate();
   updateWeapon(dt);updateTele(dt);updateUlt(dt);updateItems(dt);updateShots(dt);updateFx(dt);
   let n=0;for(const e of G.enemies)if(e.hp>0&&!e.gone)G.enemies[n++]=e;G.enemies.length=n;
   if(C.boss&&(C.boss.hp<=0||C.boss.gone))C.boss=null;}
+function chalSpawnOne(w,near){const p=G.p;const a=rnd(0,6.283),r=near?rnd(200,250):rnd(240,300);let x=clamp(p.x+Math.cos(a)*r,40,WW-40),y=clamp(p.y+Math.sin(a)*r,40,WH-40);
+  if(solidTile(x,y)){x=clamp(p.x-Math.cos(a)*r,40,WW-40);y=clamp(p.y-Math.sin(a)*r,40,WH-40);}
+  const e=spawnEnemy(chalType(),x,y,'chase',chalLevel());e.tgt=p;e.tgtKind='p';e.hp=e.maxHp=Math.round(e.maxHp*0.8);e.dmg*=0.85;e.spd*=1.3+0.015*w;
+  if(w>=6&&Math.random()<Math.min(0.2,0.05+w*0.01))makeElite(e);return e;}
+// between waves the pressure never drops: monsters keep streaming in from every side
+function chalStream(dt){const C=G.ch;const w=Math.max(1,C.wave);const alive=G.enemies.filter(e=>!e.boss).length;const cap=Math.min(80,30+w*4);if(alive>=cap)return;
+  const rate=(2.2+w*0.5)*(C.boss?0.4:1);C.spawnAcc=(C.spawnAcc||0)+rate*dt;while(C.spawnAcc>=1){C.spawnAcc-=1;chalSpawnOne(w,false);}}
 function nextWave(){const C=G.ch;C.wave++;const w=C.wave,p=G.p;
   const bossWave=w%5===0;
-  const n=Math.min(46,6+Math.round(w*2.6))-(bossWave?6:0);
-  const alive=G.enemies.filter(e=>!e.boss).length;const spawnN=Math.max(4,Math.min(n,60-alive));
-  for(let i=0;i<spawnN;i++){const a=rnd(0,6.283),r=rnd(300,380);let x=clamp(p.x+Math.cos(a)*r,40,WW-40),y=clamp(p.y+Math.sin(a)*r,40,WH-40);
-    if(solidTile(x,y)){x=clamp(p.x-Math.cos(a)*r,40,WW-40);y=clamp(p.y-Math.sin(a)*r,40,WH-40);}
-    const e=spawnEnemy(chalType(),x,y,'chase',chalLevel());e.tgt=p;e.tgtKind='p';e.hp=e.maxHp=Math.round(e.maxHp*0.8);e.dmg*=0.85;e.spd*=1.1+0.015*w;
-    if(w>=6&&Math.random()<Math.min(0.2,0.05+w*0.01))makeElite(e);}
+  const n=Math.min(40,8+Math.round(w*2.4))-(bossWave?6:0);const alive=G.enemies.filter(e=>!e.boss).length;const spawnN=Math.max(6,Math.min(n,85-alive));
+  for(let i=0;i<spawnN;i++)chalSpawnOne(w,true);
   if(bossWave&&!C.boss){const a=rnd(0,6.283);const x=clamp(p.x+Math.cos(a)*330,60,WW-60),y=clamp(p.y+Math.sin(a)*330,60,WH-60);const bi=(w/5-1)%BOSSES.length,aw=Math.floor((w/5-1)/BOSSES.length);const b=makeBoss(bi,aw,x,y,'arena',Math.floor(w/5)+1);C.boss=b;
     banner('WAVE '+w+' · 보스',b.name+' 등장 · 직접 싸운다','raid');sfx('bossroar');startDuel(b);}
-  else{banner('WAVE '+w,w===1?'사방에서 몰려온다 · 한 번 죽으면 끝':w%3===1&&w<=BANDS.length*3?'새 괴물: '+BANDS[chalBand()].map(t=>mobName(t)).join(', '):(C.score>0?'점수 '+fmtN(C.score):''),w%3===0?'raid':'rush');sfx('raid');}}
+  else if(w===1)banner('WAVE 1','사방에서 끝없이 몰려온다 · 한 번 죽으면 끝','rush');
+  else if(w%3===1&&w<=BANDS.length*3){banner('WAVE '+w,'새 괴물: '+BANDS[chalBand()].map(t=>mobName(t)).join(', '),'rush');sfx('raid');}
+  else{banner('WAVE '+w,C.score>0?'점수 '+fmtN(C.score):'','rush');}}
 function updateChalEnemy(e,dt,spd){const p=G.p;if(p.dead)return;
   const d=dist(e.x,e.y,p.x,p.y),tr=e.r+6;
   if(d>tr){steer(e,p.x,p.y,spd,dt,0);e.bite=Math.min(e.bite,0.6);}
@@ -1185,7 +1192,7 @@ function updateChalEnemy(e,dt,spd){const p=G.p;if(p.dead)return;
   if(d>700){const a=rnd(0,6.283);e.x=clamp(p.x+Math.cos(a)*340,40,WW-40);e.y=clamp(p.y+Math.sin(a)*340,40,WH-40);}}
 function onChalKill(e,who){const C=G.ch;C.kills++;C.combo++;C.comboT=1.6;
   const base=10*e.lvl*(e.elite?4:e.r>=12?2:1);const pts=Math.round(base*chalMult());C.score+=pts;
-  const xp=Math.max(1,Math.round((e.elite?6:e.r>=12?3:1)*(1+C.wave*0.2)));spawnItem('xp',e.x,e.y,xp);
+  const xp=Math.max(1,Math.round((e.elite?6:e.r>=12?3:1)*(1+C.wave*0.1)));spawnItem('xp',e.x,e.y,xp);
   if(C.combo>=5&&C.combo%5===0&&G.fx.length<70)addFx(G.p.x,G.p.y-34,C.combo+' 연속!','#ffd25a',1.3,'crit');}
 function onChalBossDead(e){const C=G.ch;C.bossKills++;C.score+=Math.round(1500*C.wave/5*chalMult());C.boss=null;banner(e.name+' 격파','+'+fmtN(Math.round(1500*C.wave/5))+'점','win');
   for(let i=0;i<6;i++)spawnItem('xp',e.x+rnd(-20,20),e.y+rnd(-20,20),Math.round(4+C.wave*0.3));
@@ -1209,7 +1216,7 @@ function onChalDeath(){const C=G.ch;C.over=true;G.p.deadT=1e9;sfx('dead');shake(
   if(typeof rankWrite==='function')rankWrite({score:C.score,wave:C.wave,cls:G.cls,kills:C.kills});
   setTimeout(()=>{if(G&&G.ch===C)showP(chalEndPanel);},1400);}
 function chalBest(){try{return JSON.parse(localStorage.getItem(CH_KEY))||{score:0,wave:0};}catch(e){return{score:0,wave:0};}}
-function startChallenge(clsKey){newGame(0,{mode:'challenge',cls:clsKey});G.live=false;G.p.x=CX;G.p.y=CY;startGame();banner('챌린지 모드',CLASSES[clsKey].n+' · 몰려오는 괴물을 막아내자','rush');}
+function startChallenge(clsKey){newGame(0,{mode:'challenge',cls:clsKey});G.live=false;G.p.x=CX;G.p.y=CY;G.ch.t=1.2;startGame();}
 
 // ===== duel: first-person manual boss fights (lair, throne, challenge bosses) =====
 // You look with a swipe (or the mouse / arrow keys), move with the left joystick (or WASD), attack with the button (J) and
@@ -2029,7 +2036,7 @@ function updateHUD(dt){const p=G.p;
     setTxt(hud.gNo,M.pvp?'PvP':'RAID');setTxt(hud.gTxt,M.pvp?(MODE_NAME[M.mode]+' · 🔵 '+M.players.filter(o=>o.team===0&&!o.p.dead&&!o.gone).length+' : '+M.players.filter(o=>o.team===1&&!o.p.dead&&!o.gone).length+' 🔴'):'설산의 폭군 · 생존 '+alive+'/'+M.players.length);setTxt(hud.gProg,'');setW(hud.gFill,0);
     const b=M.boss&&M.boss.hp>0?M.boss:null;show(hud.bossBar,!!b);show(hud.alert,false);if(b){setTxt(hud.bossName,b.name+(b.phase===2?' · 분노':''));setTxt(hud.bossSub,(M.host?(M.aggro?M.aggro.nick:''):(M.aggroId&&M.byId[M.aggroId]?M.byId[M.aggroId].nick:''))+' 노림');setW(hud.bossFill,b.hp/b.maxHp);}
     updateDuelHUD();const vig=p.hurtT>0||p.dead?'0.55':'0';if(cache.vig!==vig){cache.vig=vig;hud.vigHurt.style.opacity=vig;}return;}if(cache.chm!==ch){cache.chm=ch;document.body.classList.toggle('chal',ch);}
-  if(ch){const C=G.ch;setTxt(hud.cashTxt,fmtN(C.score));setTxt(hud.gNo,'W'+C.wave);setTxt(hud.gTxt,C.boss?'보스를 쓰러뜨리자':C.wave===0?'곧 시작':'다음 웨이브 '+Math.ceil(C.t)+'초');setTxt(hud.gProg,C.kills+'킬');setW(hud.gFill,C.wave===0?0:1-C.t/CH_WAVE_T);
+  if(ch){const C=G.ch;setTxt(hud.cashTxt,fmtN(C.score));setTxt(hud.gNo,'W'+C.wave);setTxt(hud.gTxt,C.boss?'보스를 쓰러뜨리자':C.wave===0?'곧 시작':'다음 웨이브 '+Math.ceil(Math.max(0,C.t))+'초');setTxt(hud.gProg,C.kills+'킬');setW(hud.gFill,C.wave===0?0:1-C.t/CH_WAVE_T);
     show(hud.xpBar,true);setW(hud.xpFill,C.xp/xpNeed(C.lvl));setTxt(hud.xpLv,'Lv.'+C.lvl);
     const cb=C.combo>=5&&C.comboT>0;show(hud.combo,cb);if(cb)setTxt(hud.combo,C.combo+' COMBO  ×'+chalMult().toFixed(2));}
   else{show(hud.xpBar,false);show(hud.combo,false);setTxt(hud.cashTxt,fmt$(G.cash));
