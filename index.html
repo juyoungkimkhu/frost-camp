@@ -647,7 +647,9 @@ function hitStop(t){/* disabled */}
 function shake(a){/* screen shake disabled: it made the screen too busy */}
 function enemyTargets(R){const p=G.p,px=p.x,py=p.y-4;const c=[];
   for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;const d=dist(px,py,e.x,e.y-6)-e.r;if(d<R)c.push({e,d});}
-  c.sort((a,b)=>a.d-b.d);return c;}
+  c.sort((a,b)=>a.d-b.d);
+  if(G.ch){const bi=c.findIndex(o=>o.e.boss);if(bi>0){const b=c.splice(bi,1)[0];c.unshift(b);}}// challenge: the boss comes first whenever it is in reach
+  return c;}
 function aimAt(p,t){const dx=t.x-p.x,dy=t.y-6-(p.y-4);p.atkDir=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');if(!p.moving)p.dir=p.atkDir;p.atkAng=Math.atan2(dx,dy);return Math.atan2(dy,dx);}
 function finishSwing(p,twin,len){if(twin)return;if(rl('twin'))G.twinT=0.14;p.atkCd=P.cd();p.atkT=len||Math.min(0.22,p.atkCd*0.6);p.atkDur=p.atkT;p.swing++;}
 // ----- the four classes -----
@@ -2120,7 +2122,7 @@ function flashScreen(el){const f=$('flash');f.style.setProperty('--fc',{fire:'rg
 // ===== panels =====
 const overlay=$('overlay'),panel=$('panel');let curPanel=null,prevPanel=null,pendingMode=null;
 function showP(fn){curPanel=fn;panel.innerHTML=fn();overlay.hidden=false;paused=true;panel.scrollTop=0;if(fn===titlePanel&&typeof onlineTick==='function')onlineTick();}
-function closePanel(){overlay.hidden=true;curPanel=null;panel.innerHTML='';if(G&&G.live)paused=false;}
+function closePanel(){overlay.hidden=true;curPanel=null;panel.innerHTML='';if(G&&G.live){paused=false;if(G.p&&!G.p.dead)G.p.inv=Math.max(G.p.inv,0.6);}}// a short grace period after any menu: coming back is not the player's fault
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function ladderHtml(){const i0=G.q.i,N=QUESTS.length;let h='<div class="ladder">';
   const from=Math.max(0,i0-2),to=Math.min(N-2,i0+3);
@@ -2326,7 +2328,7 @@ window.addEventListener('keydown',e=>{if(!G)return;if(e.target&&e.target.tagName
 window.addEventListener('keyup',e=>{const k=keyOf(e);keys[k]=false;if(G&&G.duel){if(k==='j')G.duel.atkHeld=false;if(k==='k')duelSetBlock(false);}if(k==='a'||k==='arrowleft'||k==='d'||k==='arrowright')joy.dx=0;if(k==='w'||k==='arrowup'||k==='s'||k==='arrowdown')joy.dy=0;});
 function duelKeyLook(dt){}
 window.addEventListener('resize',resize);
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&G){save(true);if(typeof flushCloud==='function')flushCloud();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&G){save(true);if(typeof flushCloud==='function')flushCloud();}else if(G&&G.live&&G.p&&!G.p.dead)G.p.inv=Math.max(G.p.inv,0.8);});
 window.addEventListener('pagehide',()=>{if(G){save(true);if(typeof flushCloud==='function')flushCloud();}});
 // ===== main loop =====
 let last=0;
