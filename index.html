@@ -45,6 +45,7 @@ body{margin:0;background:var(--ink);color:var(--fg);font-family:var(--ui);font-s
 #c{position:absolute;left:0;top:0}
 #ov{position:absolute;left:0;top:0;pointer-events:none}
 #vigHurt{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;box-shadow:inset 0 0 60px 16px rgba(255,40,60,.9)}
+#vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(10,20,40,.28) 100%)}
 #weather{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 1.2s}
 #weather.blizzard{opacity:1;background:radial-gradient(ellipse at center,rgba(255,255,255,0) 35%,rgba(235,244,255,.75) 100%)}
 #weather.aurora{opacity:1;background:linear-gradient(180deg,rgba(80,255,200,.22),rgba(150,110,255,.12) 30%,rgba(0,0,0,0) 55%);animation:aur 6s ease-in-out infinite alternate}
@@ -191,6 +192,7 @@ body.chal #cashBox{color:var(--gold)}
 <div id="game">
   <canvas id="c" aria-label="눈보라 캠프 게임 화면"></canvas>
   <canvas id="ov"></canvas>
+  <div id="vig"></div>
   <div id="weather"></div>
   <div id="vigHurt"></div>
   <div id="flash"></div>
@@ -263,9 +265,9 @@ const CLASSES={
   mage:{n:'마법사',ico:'🔮',d:'마력구를 날려 넓게 폭발시킨다. 가장 느리지만 가장 넓다.',cd:1.3,dm:2.9,rg:1.35,hp:0.85,col:0xb08cff,css:'#c6a8ff',
     forms:['견습 지팡이','마력 지팡이','원소 지팡이','현자의 지팡이','대마법사의 지팡이','창세의 지팡이'],
     fd:['마력구가 떨어진 곳이 폭발','폭발 범위 +40%','원소 각성 · 불꽃/서리/번개 중 하나','마력구 2개','폭발한 자리에 잔류 피해','마력구 3개 · 범위 2배']},
-  rogue:{n:'도적',ico:'🗡️',d:'순식간에 파고들어 두 번 찌른다. 치명타가 자주 터진다.',cd:0.55,dm:1.05,rg:0.8,hp:1.0,col:0xffe45c,css:'#ffe87a',
+  rogue:{n:'도적',ico:'🗡️',d:'가만히 있으면 파고들어 두 번 찌른다. 치명타가 잦고, 때릴 때마다 체력을 조금 빨아들인다.',cd:0.55,dm:1.05,rg:0.8,hp:1.0,col:0xffe45c,css:'#ffe87a',
     forms:['단검','쌍단검','그림자 칼날','암살자의 송곳니','환영 무희의 검','허무의 칼날'],
-    fd:['돌진 후 연속 2타 · 치명타 25%','치명타 40%','공격마다 그림자 칼날 3개를 던진다','치명타가 터지면 폭발','그림자 분신이 함께 공격','치명타 100% · 처치하면 즉시 재공격']}
+    fd:['돌진 후 연속 2타 · 치명타 25% · 타격마다 체력 흡수','치명타 40%','공격마다 그림자 칼날 3개를 던진다','치명타가 터지면 폭발','그림자 분신이 함께 공격','치명타 100% · 처치하면 즉시 재공격']}
 };
 const CLASS_ORDER=['warrior','archer','mage','rogue'];
 const ELEM={
@@ -576,7 +578,7 @@ function shelterSize(l){return{w:30+8*Math.min(l,6),d:22+5*Math.min(l,6),h:16+6*
 function buildings(){if(G.noCamp)return[];const c=G.camp,ss=shelterSize(G.up.camp);return[{x:c.x+POS.shelf.x,y:c.y+POS.shelf.y,hw:16,top:12,bot:4},{x:c.x+POS.shelter.x,y:c.y+POS.shelter.y,hw:ss.w/2,top:ss.d/2,bot:ss.d/2},{x:c.x+POS.launcher.x,y:c.y+POS.launcher.y,hw:11,top:8,bot:2,only:missileOn(G.up.defense)},{x:c.x+POS.grill.x,y:c.y+POS.grill.y,hw:14,top:12,bot:3,only:G.up.grill>0},{x:c.x+POS.tent.x,y:c.y+POS.tent.y,hw:18,top:16,bot:3,only:G.up.hunter>0},{x:c.x+POS.fire.x,y:c.y+POS.fire.y,hw:8,top:5,bot:3}];}
 function pushOut(e){for(const b of buildings()){if(b.only===false)continue;const l=b.x-b.hw,r=b.x+b.hw,t=b.y-b.top,bt=b.y+b.bot;if(e.x<=l||e.x>=r||e.y<=t||e.y>=bt)continue;const dl=e.x-l,dr=r-e.x,dtp=e.y-t,db=bt-e.y;const m=Math.min(dl,dr,dtp,db);if(m===dl)e.x=l;else if(m===dr)e.x=r;else if(m===dtp)e.y=t;else e.y=bt;}}
 // ===== combat: hit feel helpers =====
-function hitStop(t){if(G.hitStop<t)G.hitStop=t;}
+function hitStop(t){/* disabled */}
 function shake(a){/* screen shake disabled: it made the screen too busy */}
 function enemyTargets(R){const p=G.p,px=p.x,py=p.y-4;const c=[];
   for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;const d=dist(px,py,e.x,e.y-6)-e.r;if(d<R)c.push({e,d});}
@@ -601,8 +603,10 @@ function classAttack(twin){const p=G.p,R=P.range(),tier=P.tier(),dmg=P.dmg()*(tw
     tg.forEach((q,i)=>{const lead=0.35;const tx=q.x+(q.kx||0)*0,ty=q.y;G.shots.push({kind:'orb',x:p.x+(i-(n-1)/2)*10,y:p.y-14,sx:p.x,sy:p.y-14,tx,ty,tgt:q,t:0,dur:0.42+i*0.08,dmg:dmg,rad,zone:tier>=4});});
     finishSwing(p,twin,0.3);sfx('cast');return true;}
   case 'rogue':{const c=enemyTargets(R);if(!c.length)return false;const t=c[0].e;const a=aimAt(p,t);const d=dist(p.x,p.y,t.x,t.y);
-    if(d>t.r+14&&!twin){const go=d-(t.r+10);const ox=p.x,oy=p.y;if(G.ghosts.length<8)G.ghosts.push({x:ox,y:oy,dir:p.dir,t:0});moveEnt(p,Math.cos(a)*go,Math.sin(a)*go,1);pushOut(p);p.dashT=0.14;}
+    if(d>t.r+14&&!twin&&!p.moving){const go=d-(t.r+10);const nx=p.x+Math.cos(a)*go,ny=p.y+Math.sin(a)*go;const danger=G.tele.some(z=>!z.done&&teleHit(z,nx,ny-2));if(!danger){const ox=p.x,oy=p.y;if(G.ghosts.length<8)G.ghosts.push({x:ox,y:oy,dir:p.dir,t:0});moveEnt(p,Math.cos(a)*go,Math.sin(a)*go,1);pushOut(p);p.dashT=0.14;}}
+    if(dist(p.x,p.y,t.x,t.y)>t.r+30)return false;// too far and no dash: wait for them to come
     const hitR=24;let n=0;for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;if(e===t||dist(e.x,e.y,t.x,t.y)<hitR+e.r){hitEnemy(e,dmg,p,'p',{kb:0.6});n++;}}
+    if(n&&!p.dead)p.hp=Math.min(P.maxHp(),p.hp+P.maxHp()*0.012*Math.min(n,3));
     if(!twin)G.rogue2={t:0.12,tgt:t,dmg};
     if(tier>=2){for(let i=-1;i<=1;i++){const aa=a+i*0.35;G.shots.push({kind:'sblade',x:p.x,y:p.y-6,vx:Math.cos(aa)*430,vy:Math.sin(aa)*430,a:aa,dmg:dmg*0.5,pierce:2,hit:new Set([t]),dist:0,max:R*2.2,t:0});}}
     if(tier>=4&&!twin){G.cloneT=0.2;G.cloneTgt=t;}
@@ -1070,9 +1074,9 @@ function doMigrate(newCls){const keep={medals:G.medals+migrateGain(),biome:G.bio
 
 // ===== challenge mode: endless waves, one life, score · level-ups give a pick of 3 =====
 const CH_WAVE_T=22;
-function chalBand(){return Math.min(BANDS.length-1,Math.floor((G.ch.wave-1)/2));}
+function chalBand(){return Math.min(BANDS.length-1,Math.floor((G.ch.wave-1)/3));}
 function chalType(){return pick(BANDS[chalBand()]);}
-function chalLevel(){const w=G.ch.wave;return Math.max(1,Math.round(1+w*1.05+Math.max(0,w-10)*0.5));}
+function chalLevel(){const w=G.ch.wave;return Math.max(1,Math.round(1+w*0.8+Math.max(0,w-12)*0.4));}
 function xpNeed(l){return Math.round(6+l*4+Math.pow(l,1.5));}
 function chalMult(){return 1+Math.min(G.ch.combo,40)*0.05;}
 function updateChallenge(dt){const C=G.ch,p=G.p;if(C.over)return;
@@ -1095,7 +1099,7 @@ function nextWave(){const C=G.ch;C.wave++;const w=C.wave,p=G.p;
     if(w>=6&&Math.random()<Math.min(0.2,0.05+w*0.01))makeElite(e);}
   if(bossWave&&!C.boss){const a=rnd(0,6.283);const x=clamp(p.x+Math.cos(a)*330,60,WW-60),y=clamp(p.y+Math.sin(a)*330,60,WH-60);const bi=(w/5-1)%BOSSES.length,aw=Math.floor((w/5-1)/BOSSES.length);const b=makeBoss(bi,aw,x,y,'arena',Math.floor(w/5)+1);C.boss=b;
     banner('WAVE '+w+' · 보스',b.name+' 등장','raid');sfx('bossroar');}
-  else{banner('WAVE '+w,w===1?'사방에서 몰려온다 · 한 번 죽으면 끝':w%2===1&&w<=BANDS.length*2?'새 괴물: '+BANDS[chalBand()].map(t=>mobName(t)).join(', '):(C.score>0?'점수 '+fmtN(C.score):''),w%3===0?'raid':'rush');sfx('raid');}}
+  else{banner('WAVE '+w,w===1?'사방에서 몰려온다 · 한 번 죽으면 끝':w%3===1&&w<=BANDS.length*3?'새 괴물: '+BANDS[chalBand()].map(t=>mobName(t)).join(', '):(C.score>0?'점수 '+fmtN(C.score):''),w%3===0?'raid':'rush');sfx('raid');}}
 function updateChalEnemy(e,dt,spd){const p=G.p;if(p.dead)return;
   const d=dist(e.x,e.y,p.x,p.y),tr=e.r+6;
   if(d>tr){steer(e,p.x,p.y,spd,dt,0);e.bite=Math.min(e.bite,0.6);}
@@ -1103,7 +1107,7 @@ function updateChalEnemy(e,dt,spd){const p=G.p;if(p.dead)return;
   if(d>700){const a=rnd(0,6.283);e.x=clamp(p.x+Math.cos(a)*340,40,WW-40);e.y=clamp(p.y+Math.sin(a)*340,40,WH-40);}}
 function onChalKill(e,who){const C=G.ch;C.kills++;C.combo++;C.comboT=1.6;
   const base=10*e.lvl*(e.elite?4:e.r>=12?2:1);const pts=Math.round(base*chalMult());C.score+=pts;
-  const xp=Math.max(1,Math.round((e.elite?6:e.r>=12?3:1)*(1+C.wave*0.15)));spawnItem('xp',e.x,e.y,xp);
+  const xp=Math.max(1,Math.round((e.elite?6:e.r>=12?3:1)*(1+C.wave*0.2)));spawnItem('xp',e.x,e.y,xp);
   if(C.combo>=5&&C.combo%5===0&&G.fx.length<70)addFx(G.p.x,G.p.y-34,C.combo+' 연속!','#ffd25a',1.3,'crit');}
 function onChalBossDead(e){const C=G.ch;C.bossKills++;C.score+=Math.round(1500*C.wave/5*chalMult());C.boss=null;banner(e.name+' 격파','+'+fmtN(Math.round(1500*C.wave/5))+'점','win');
   for(let i=0;i<6;i++)spawnItem('xp',e.x+rnd(-20,20),e.y+rnd(-20,20),Math.round(4+C.wave*0.3));
@@ -1111,8 +1115,8 @@ function onChalBossDead(e){const C=G.ch;C.bossKills++;C.score+=Math.round(1500*C
 function gainXp(n){const C=G.ch;if(!C||C.over)return;C.xp+=n;while(C.xp>=xpNeed(C.lvl)){C.xp-=xpNeed(C.lvl);C.lvl++;G.pick.push({type:'lvl'});G.pickDelay=Math.max(G.pickDelay,0.3);sfx('up');}}
 // level-up: three cards drawn from stat boosts and relics
 const LVL_OPTS={
-  weapon:{n:'무기 강화',ico:'⚔️',d:()=>'무기 Lv.'+G.up.weapon+' → '+(G.up.weapon+1)+(weaponTier(G.up.weapon+1)>weaponTier(G.up.weapon)?' · 진화!':''),f:()=>applyUpgrade('weapon',true)},
-  hp:{n:'체력 강화',ico:'❤️',d:()=>'최대 체력 ↑ · 30% 회복',f:()=>applyUpgrade('hp',true)},
+  weapon:{n:'무기 강화',ico:'⚔️',d:()=>'무기 Lv.'+G.up.weapon+' → '+(G.up.weapon+1)+' · 피해 '+fmtN(UPG.weapon.val(G.up.weapon))+' → '+fmtN(UPG.weapon.val(G.up.weapon+1))+(weaponTier(G.up.weapon+1)>weaponTier(G.up.weapon)?' · 진화!':''),f:()=>applyUpgrade('weapon',true)},
+  hp:{n:'체력 강화',ico:'❤️',d:()=>'최대 체력 '+fmtN(P.maxHp())+' → '+fmtN(UPG.hp.val(G.up.hp+1)*(1+0.1*G.medals))+' · 30% 회복',f:()=>applyUpgrade('hp',true)},
   move:{n:'신속',ico:'👟',d:()=>'이동 속도 ↑',f:()=>applyUpgrade('move',true)},
   heal:{n:'응급 치료',ico:'🩹',d:()=>'체력 전부 회복',f:()=>{G.p.hp=P.maxHp();}},
   ult:{n:'필살기 충전',ico:'🌀',d:()=>'필살기를 즉시 가득 채운다',f:()=>{G.ult=1;}}
@@ -1200,11 +1204,11 @@ function GEO(k,f){if(!geoCache[k])geoCache[k]=f();return geoCache[k];}
 let curArena=false,sledMesh=null,cartMesh=null,fenceMesh=null,fenceLvBuilt=-1,slash=null,slash2=null,pools={},statics={},player3,playerParts={},weaponMesh=null,weaponKeyBuilt='',rangeRing,ringEdge,snow,snowGeo,blizSnow,blizGeo,explosions=[],fireMats=[],padPool,turretGuns=[],turretStage=-1,shelterGroup=null,shelterLvBuilt=-1,groundTex=null,grillFire,campFire,tailorFire,curBiome=-1;
 function initRender(){
   renderer=new T.WebGLRenderer({canvas:$('c'),antialias:true,alpha:false,powerPreference:'high-performance'});
-  DPR=Math.min(2,window.devicePixelRatio||1);renderer.setPixelRatio(DPR);renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.setClearColor(0xd5dfea);
+  DPR=Math.min(2,window.devicePixelRatio||1);renderer.setPixelRatio(DPR);renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.setClearColor(0xd5dfea);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
   scene=new T.Scene();scene.fog=new T.Fog(0xd9e3ed,800,1500);
   camera=new T.PerspectiveCamera(38,1,10,2600);
-  hemi=new T.HemisphereLight(0xdfe9f7,0x7f8fa8,0.85);scene.add(hemi);
-  sun=new T.DirectionalLight(0xfff4e6,1.0);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);const sc=sun.shadow.camera;sc.left=-300;sc.right=300;sc.top=300;sc.bottom=-300;sc.near=10;sc.far=1400;sun.shadow.bias=-0.0008;scene.add(sun);scene.add(sun.target);
+  hemi=new T.HemisphereLight(0xdfe9f7,0x7f8fa8,0.75);scene.add(hemi);
+  sun=new T.DirectionalLight(0xfff4e6,1.35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);const sc=sun.shadow.camera;sc.left=-300;sc.right=300;sc.top=300;sc.bottom=-300;sc.near=10;sc.far=1400;sun.shadow.bias=-0.0008;scene.add(sun);scene.add(sun.target);
   ov=$('ov');ovx=ov.getContext('2d');
   pools.bear=new Pool(GEO('bear',()=>bearGeo(0xeee8dc,0xd2cbbb,0x1b1b2f,1)),160,true);
   pools.cub=new Pool(GEO('cub',()=>bearGeo(0xfbf8f2,0xe3dccf,0x1b1b2f,0.62)),120,true);
@@ -1275,7 +1279,7 @@ function buildGroundTexture(){const B=biomeDef(G.biome);const cv=document.create
 let worldGroup=null;
 function buildWorld(){if(worldGroup){scene.remove(worldGroup);worldGroup.traverse(o=>{if(o.geometry&&!o.isInstancedMesh)o.geometry.dispose();});}
   worldGroup=new T.Group();scene.add(worldGroup);turretGuns=[];turretStage=-1;shelterGroup=null;shelterLvBuilt=-1;grillFire=null;tailorFire=null;fireMats=[];
-  camSnap=true;const B=biomeDef(G.biome);curBiome=G.biome;curArena=!!G.noCamp;renderer.setClearColor(B.clear);scene.fog.color.setHex(B.fog);hemi.color.setHex(B.hemi);hemi.groundColor.setHex(B.gnd);sun.color.setHex(B.sun);sun.intensity=B.sunI;snow.material.color.setHex(B.snow.col);snow.material.size=B.snow.fall<0?2.6:2.2;
+  camSnap=true;const B=biomeDef(G.biome);curBiome=G.biome;curArena=!!G.noCamp;renderer.setClearColor(B.clear);scene.fog.color.setHex(B.fog);hemi.color.setHex(B.hemi);hemi.groundColor.setHex(B.gnd);sun.color.setHex(B.sun);sun.intensity=B.sunI*1.35;snow.material.color.setHex(B.snow.col);snow.material.size=B.snow.fall<0?2.6:2.2;
   pools.tree.m.geometry=treeGeo(G.biome);pools.rock.m.geometry=rockGeo(G.biome);
   if(groundTex)groundTex.dispose();groundTex=buildGroundTexture();
   const ground=new T.Mesh(new T.PlaneGeometry(WW,WH),new T.MeshLambertMaterial({map:groundTex}));ground.rotation.x=-Math.PI/2;ground.position.set(WW/2,0,WH/2);ground.receiveShadow=true;worldGroup.add(ground);
@@ -1819,7 +1823,7 @@ window.__fc={g:()=>G,set:f=>f(G),step:dt=>{update(dt);},joy,P,UPG,ORDER,PADS,POS
   autoPick:()=>{const e=G.pick[0];if(!e)return null;if(e.type==='element'){G.element=pick(['fire','ice','bolt']);G.pick.shift();return 'elem';}if(e.type==='lvl'){const o=rollLvl();G.pick.shift();if(o[0].relic)takeRelic(o[0].relic);else LVL_OPTS[o[0].k].f();return 'lvl';}const o=rollRelics(e.src);G.pick.shift();if(o.length){takeRelic(o[0]);return o[0];}return null;},
   showPick:()=>showPick(),lock:k=>padLockMsg(k),vis:k=>padVisible(k),teleHit:(t,x,y)=>teleHit(t,x,y),estDps:()=>estDps(),q:()=>({i:G.q.i,t:qDef().t,v:qVal(),n:qNeed()}),doMigrate:(c)=>{doMigrate(c);buildWorld();},spawnRaid:()=>{G.raidDir=0;spawnRaid();},golden:()=>spawnGolden(true),weather:()=>startWeather(),FB,panel:()=>curPanel&&curPanel.name,act:a=>handleAction(a.split(':')),load:()=>load()};
 function loop(ts){requestAnimationFrame(loop);const dt=Math.min(0.05,Math.max(0,(ts-last)/1000));last=ts;if(!G)return;
-  let sdt=dt;if(!paused){if(G.slowT>0){G.slowT-=dt;sdt=dt*0.3;}if(G.hitStop>0){G.hitStop-=dt;sdt=Math.min(sdt,dt*0.12);}update(sdt);if(G.pick.length&&!curPanel&&G.pickDelay<=0&&(!G.p.dead||G.ch)&&!(G.ch&&G.ch.over))showPick();}
+  let sdt=dt;if(!paused){G.slowT=0;G.hitStop=0;/* no slow-motion or hit-stop: time always runs at full speed */update(sdt);if(G.pick.length&&!curPanel&&G.pickDelay<=0&&(!G.p.dead||G.ch)&&!(G.ch&&G.ch.over))showPick();}
   if(G.shake>0)G.shake=Math.max(0,G.shake-dt*22);
   renderFrame(paused?0:sdt,dt);updateHUD(dt);updateToast(dt);updateBanner(dt);}
 function init(){initRender();resize();newGame();G.live=false;buildWorld();showP(titlePanel);fbInit();requestAnimationFrame(ts=>{last=ts;loop(ts);});}
