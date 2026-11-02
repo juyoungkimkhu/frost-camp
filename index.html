@@ -577,7 +577,7 @@ function buildings(){if(G.noCamp)return[];const c=G.camp,ss=shelterSize(G.up.cam
 function pushOut(e){for(const b of buildings()){if(b.only===false)continue;const l=b.x-b.hw,r=b.x+b.hw,t=b.y-b.top,bt=b.y+b.bot;if(e.x<=l||e.x>=r||e.y<=t||e.y>=bt)continue;const dl=e.x-l,dr=r-e.x,dtp=e.y-t,db=bt-e.y;const m=Math.min(dl,dr,dtp,db);if(m===dl)e.x=l;else if(m===dr)e.x=r;else if(m===dtp)e.y=t;else e.y=bt;}}
 // ===== combat: hit feel helpers =====
 function hitStop(t){if(G.hitStop<t)G.hitStop=t;}
-function shake(a){if(G.shake<a)G.shake=a;}
+function shake(a){/* screen shake disabled: it made the screen too busy */}
 function enemyTargets(R){const p=G.p,px=p.x,py=p.y-4;const c=[];
   for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;const d=dist(px,py,e.x,e.y-6)-e.r;if(d<R)c.push({e,d});}
   c.sort((a,b)=>a.d-b.d);return c;}
