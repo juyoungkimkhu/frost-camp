@@ -588,7 +588,7 @@ function classAttack(twin){const p=G.p,R=P.range(),tier=P.tier(),dmg=P.dmg()*(tw
   switch(G.cls){
   case 'warrior':{const c=enemyTargets(R);if(!c.length)return false;const t=c[0].e,a=aimAt(p,t);const spin=tier>=2&&p.swing%3===2;const half=spin?Math.PI:(tier>=1?1.05:0.8);
     let n=0;for(const o of c){const e=o.e;const ea=Math.atan2(e.y-6-(p.y-4),e.x-p.x);let d=ea-a;d=Math.atan2(Math.sin(d),Math.cos(d));if(Math.abs(d)<=half){hitEnemy(e,dmg,p,'p',{kb:tier>=1?1.9:1.4});n++;}}
-    if(n){hitStop(spin?0.09:0.06);shake(spin?5:3);if(tier>=3)G.waves.push({x:p.x,y:p.y,r:0,R:R*(spin?1.5:1.15),t:0,hit:new Set(c.slice(0,n).map(o=>o.e)),dmg:dmg*0.5,who:'w'});
+    if(n){if(spin)hitStop(0.05);if(tier>=3)G.waves.push({x:p.x,y:p.y,r:0,R:R*(spin?1.5:1.15),t:0,hit:new Set(c.slice(0,n).map(o=>o.e)),dmg:dmg*0.5,who:'w'});
       if(tier>=4&&!p.dead)p.hp=Math.min(P.maxHp(),p.hp+P.maxHp()*0.012*Math.min(n,4));
       if(tier>=5&&p.swing%3===0)castMeteor(R*2.2,3);
       if(G.cracks.length<6)G.cracks.push({x:p.x,y:p.y-4,a,len:R*(spin?1:0.9),t:0,spin});}
@@ -603,7 +603,7 @@ function classAttack(twin){const p=G.p,R=P.range(),tier=P.tier(),dmg=P.dmg()*(tw
   case 'rogue':{const c=enemyTargets(R);if(!c.length)return false;const t=c[0].e;const a=aimAt(p,t);const d=dist(p.x,p.y,t.x,t.y);
     if(d>t.r+14&&!twin){const go=d-(t.r+10);const ox=p.x,oy=p.y;if(G.ghosts.length<8)G.ghosts.push({x:ox,y:oy,dir:p.dir,t:0});moveEnt(p,Math.cos(a)*go,Math.sin(a)*go,1);pushOut(p);p.dashT=0.14;}
     const hitR=24;let n=0;for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;if(e===t||dist(e.x,e.y,t.x,t.y)<hitR+e.r){hitEnemy(e,dmg,p,'p',{kb:0.6});n++;}}
-    hitStop(0.035);shake(2);if(!twin)G.rogue2={t:0.12,tgt:t,dmg};
+    if(!twin)G.rogue2={t:0.12,tgt:t,dmg};
     if(tier>=2){for(let i=-1;i<=1;i++){const aa=a+i*0.35;G.shots.push({kind:'sblade',x:p.x,y:p.y-6,vx:Math.cos(aa)*430,vy:Math.sin(aa)*430,a:aa,dmg:dmg*0.5,pierce:2,hit:new Set([t]),dist:0,max:R*2.2,t:0});}}
     if(tier>=4&&!twin){G.cloneT=0.2;G.cloneTgt=t;}
     finishSwing(p,twin,0.14);sfx('stab');return true;}
@@ -628,7 +628,7 @@ function hitEnemy(e,dmg,src,who,opt){if(e.hp<=0)return;opt=opt||{};
   // damage numbers: every player hit, big and bright; other sources only on bosses / crits
   const direct=who==='p'||who==='a'||who==='s'||who==='m';
   if((direct||crit||e.boss)&&G.fx.length<70&&G.time-(e.numT||0)>(e.boss?0.12:0.08)){e.numT=G.time;addFx(e.x+rnd(-6,6),e.y-14-e.r,fmtN(dmg)+(crit?'!':''),crit?'#ffd25a':direct?'#ffffff':'#cfe0f2',crit?1.5:direct?1.15:0.9,crit?'crit':'hit');}
-  if(crit&&direct){hitStop(0.05);shake(3);}
+  if(crit&&direct&&(e.boss||e.r>=12||e.elite))hitStop(0.04);
   if(G.parts.length<190){if(direct){spawnParts(e.x,e.y-6,elemCss()||cls().css,crit?5:3);}spawnParts(e.x,e.y-6,'#ff4242',e.boss?1:2);}
   if(PLAYERISH[who]&&e.boss)G.ult=Math.min(1,G.ult+0.0025*ultMul());
   if(G.cls==='rogue'&&crit&&P.tier()>=3&&G.pendingBooms.length<20&&who==='p')G.pendingBooms.push({x:e.x,y:e.y,dmg:P.dmg()*0.6,col:0xffe45c});
@@ -841,7 +841,7 @@ function updateDefense(dt){const c=G.camp,l=G.up.defense;if(l<=0)return;
   if(missileOn(l)){G.missileT-=dt;if(G.missileT<=0){const lx=c.x+POS.launcher.x,ly=c.y+POS.launcher.y;const t=clusterTarget(lx,ly,300,40);
     if(t){G.missileT=missileInt(l);const n=missileN(l);for(let k=0;k<n;k++){let tt=t;if(k>0){const o=G.enemies.filter(e=>e.hp>0&&!e.sleep&&dist(e.x,e.y,lx,ly)<300);if(o.length)tt=pick(o);}G.shots.push({kind:'missile',x:lx,y:ly-14,sx:lx,sy:ly-14,tx:tt.x,ty:tt.y,tgt:tt,t:0,dur:0.9+k*0.15,dmg:missileDmg(l),rad:48});}sfx('launch');}else G.missileT=0.3;}}
 }
-function explode(x,y,rad,dmg,who,col){G.booms.push({x,y,r:rad,t:0,col:col||0xff8a1f});spawnParts(x,y,'#ffd872',8);spawnParts(x,y,'#ff8a1f',6);sfx('boom');if(who==='a'||who==='m'){shake(4);hitStop(0.04);}
+function explode(x,y,rad,dmg,who,col){G.booms.push({x,y,r:rad,t:0,col:col||0xff8a1f});spawnParts(x,y,'#ffd872',8);spawnParts(x,y,'#ff8a1f',6);sfx('boom');
   const src={x,y};for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;if(dist(e.x,e.y-6,x,y)<rad+e.r)hitEnemy(e,dmg,src,who||'d');}}
 function updateShots(dt){
   for(const sh of G.shots){sh.t+=dt;
@@ -849,12 +849,12 @@ function updateShots(dt){
     else if(sh.kind==='missile'){const k=Math.min(1,sh.t/sh.dur);if(sh.tgt&&sh.tgt.hp>0&&k<0.7){sh.tx=sh.tgt.x;sh.ty=sh.tgt.y;}sh.x=sh.sx+(sh.tx-sh.sx)*k;sh.y=sh.sy+(sh.ty-sh.sy)*k;sh.z=Math.sin(k*Math.PI)*40;sh.ang=Math.atan2(sh.ty-sh.sy,sh.tx-sh.sx);
       if(k>=1){sh.dead=true;explode(sh.tx,sh.ty,sh.rad,sh.dmg,'d');}}
     else if(sh.kind==='arrow'||sh.kind==='sblade'){const step=Math.hypot(sh.vx,sh.vy)*dt;sh.x+=sh.vx*dt;sh.y+=sh.vy*dt;sh.dist+=step;
-      for(const e of G.enemies){if(e.hp<=0||e.sleep||sh.hit.has(e))continue;if(Math.abs(e.x-sh.x)>e.r+8||Math.abs(e.y-6-sh.y)>e.r+8)continue;if(dist(e.x,e.y-6,sh.x,sh.y)<e.r+7){sh.hit.add(e);hitEnemy(e,sh.dmg,{x:sh.x-sh.vx*0.05,y:sh.y-sh.vy*0.05},sh.kind==='arrow'?'a':'s',{kb:0.7});if(sh.kind==='arrow'){hitStop(0.03);shake(1.5);}
+      for(const e of G.enemies){if(e.hp<=0||e.sleep||sh.hit.has(e))continue;if(Math.abs(e.x-sh.x)>e.r+8||Math.abs(e.y-6-sh.y)>e.r+8)continue;if(dist(e.x,e.y-6,sh.x,sh.y)<e.r+7){sh.hit.add(e);hitEnemy(e,sh.dmg,{x:sh.x-sh.vx*0.05,y:sh.y-sh.vy*0.05},sh.kind==='arrow'?'a':'s',{kb:0.7});
         if(sh.hit.size>=sh.pierce){sh.dead=true;break;}}}
       if(!sh.dead&&(sh.dist>sh.max||solidTile(sh.x,sh.y)||sh.x<10||sh.y<10||sh.x>WW-10||sh.y>WH-10))sh.dead=true;
       if(sh.dead&&sh.kind==='arrow'&&sh.boom)explode(sh.x,sh.y,34,sh.dmg*0.6,'a',cls().col);}
     else if(sh.kind==='orb'){const k=Math.min(1,sh.t/sh.dur);if(sh.tgt&&sh.tgt.hp>0&&k<0.6){sh.tx=sh.tgt.x;sh.ty=sh.tgt.y;}sh.x=sh.sx+(sh.tx-sh.sx)*k;sh.y=sh.sy+(sh.ty-sh.sy)*k;sh.z=Math.sin(k*Math.PI)*34;
-      if(k>=1){sh.dead=true;explode(sh.tx,sh.ty,sh.rad,sh.dmg,'m',G.element&&P.tier()>=elemTier()?ELEM[G.element].c:0xb08cff);hitStop(0.05);
+      if(k>=1){sh.dead=true;explode(sh.tx,sh.ty,sh.rad,sh.dmg,'m',G.element&&P.tier()>=elemTier()?ELEM[G.element].c:0xb08cff);
         if(sh.zone&&G.zones.length<8)G.zones.push({x:sh.tx,y:sh.ty,r:sh.rad*0.8,t:0,dur:2.2,tick:0,dmg:sh.dmg*0.25});}}}
   G.shots=G.shots.filter(s=>!s.dead);
   for(const b of G.booms)b.t+=dt;G.booms=G.booms.filter(b=>b.t<0.4);
@@ -1048,7 +1048,7 @@ function updatePet(dt){const l=G.up.pet;if(l<=0)return;const pt=G.pet,p=G.p;pt.a
 function bladeCount(){return clamp(rl('blade'),0,8);}
 function updateWeapon(dt){const p=G.p;G.orbitA+=dt*3.4;
   if(G.twinT>0){G.twinT-=dt;if(G.twinT<=0){G.twinT=-1;if(!p.dead)classAttack(true);}}
-  if(G.rogue2){const r=G.rogue2;r.t-=dt;if(r.t<=0){G.rogue2=null;if(!p.dead){let n=0;for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;if(e===r.tgt||dist(e.x,e.y,r.tgt.x,r.tgt.y)<24+e.r){hitEnemy(e,r.dmg,p,'p',{kb:1.2});n++;}}if(n){hitStop(0.05);shake(3);p.atkT=Math.max(p.atkT,0.12);sfx('stab');}}}}
+  if(G.rogue2){const r=G.rogue2;r.t-=dt;if(r.t<=0){G.rogue2=null;if(!p.dead){let n=0;for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;if(e===r.tgt||dist(e.x,e.y,r.tgt.x,r.tgt.y)<24+e.r){hitEnemy(e,r.dmg,p,'p',{kb:1.2});n++;}}if(n){p.atkT=Math.max(p.atkT,0.12);sfx('stab');}}}}
   if(G.cloneT>0){G.cloneT-=dt;if(G.cloneT<=0&&!p.dead&&G.cloneTgt&&G.cloneTgt.hp>0){const t=G.cloneTgt;const cx=t.x+(t.x-p.x)*0.3,cy=t.y+(t.y-p.y)*0.3;if(G.ghosts.length<8)G.ghosts.push({x:cx,y:cy,dir:p.dir,t:0,clone:1});for(const e of G.enemies){if(e.hp<=0||e.sleep)continue;if(e===t||dist(e.x,e.y,t.x,t.y)<24+e.r)hitEnemy(e,P.dmg()*0.6,{x:cx,y:cy},'s');}sfx('stab');}}
   if(!p.dead){
     const nb=bladeCount();if(nb>0){const R=P.range()*0.72,dmg=P.dmg()*0.5;for(let i=0;i<nb;i++){const a=G.orbitA+i*Math.PI*2/nb;const bx=p.x+Math.cos(a)*R,by=p.y-4+Math.sin(a)*R;
@@ -1275,7 +1275,7 @@ function buildGroundTexture(){const B=biomeDef(G.biome);const cv=document.create
 let worldGroup=null;
 function buildWorld(){if(worldGroup){scene.remove(worldGroup);worldGroup.traverse(o=>{if(o.geometry&&!o.isInstancedMesh)o.geometry.dispose();});}
   worldGroup=new T.Group();scene.add(worldGroup);turretGuns=[];turretStage=-1;shelterGroup=null;shelterLvBuilt=-1;grillFire=null;tailorFire=null;fireMats=[];
-  const B=biomeDef(G.biome);curBiome=G.biome;curArena=!!G.noCamp;renderer.setClearColor(B.clear);scene.fog.color.setHex(B.fog);hemi.color.setHex(B.hemi);hemi.groundColor.setHex(B.gnd);sun.color.setHex(B.sun);sun.intensity=B.sunI;snow.material.color.setHex(B.snow.col);snow.material.size=B.snow.fall<0?2.6:2.2;
+  camSnap=true;const B=biomeDef(G.biome);curBiome=G.biome;curArena=!!G.noCamp;renderer.setClearColor(B.clear);scene.fog.color.setHex(B.fog);hemi.color.setHex(B.hemi);hemi.groundColor.setHex(B.gnd);sun.color.setHex(B.sun);sun.intensity=B.sunI;snow.material.color.setHex(B.snow.col);snow.material.size=B.snow.fall<0?2.6:2.2;
   pools.tree.m.geometry=treeGeo(G.biome);pools.rock.m.geometry=rockGeo(G.biome);
   if(groundTex)groundTex.dispose();groundTex=buildGroundTexture();
   const ground=new T.Mesh(new T.PlaneGeometry(WW,WH),new T.MeshLambertMaterial({map:groundTex}));ground.rotation.x=-Math.PI/2;ground.position.set(WW/2,0,WH/2);ground.receiveShadow=true;worldGroup.add(ground);
@@ -1370,7 +1370,8 @@ const faceAng=new WeakMap();
 function moveAngle(e,def){const prev=faceAng.get(e);let a=prev?prev.a:def;if(prev){const dx=e.x-prev.x,dz=e.y-prev.y;if(dx*dx+dz*dz>0.02)a=Math.atan2(dx,dz);faceAng.set(e,{x:e.x,y:e.y,a});}else faceAng.set(e,{x:e.x,y:e.y,a});return a;}
 function resize(){if(!renderer)return;W=window.innerWidth;H=window.innerHeight;renderer.setSize(W,H,false);const cv=$('c');cv.style.width=W+'px';cv.style.height=H+'px';camera.aspect=W/H;camera.updateProjectionMatrix();ov.width=Math.round(W*DPR);ov.height=Math.round(H*DPR);ov.style.width=W+'px';ov.style.height=H+'px';}
 let camLook=new T.Vector3(),camDist=600,shadowSpan=300;
-function updateCamera(dt){const p=G.p;const lead=12+camDist*0.1;camLook.set(p.x,0,p.y-lead);
+let realDt=0.016,camSnap=true;
+function updateCamera(dt){const p=G.p;const lead=12+camDist*0.1;const tx=p.x,tz=p.y-lead;if(camSnap||Math.abs(camLook.x-tx)+Math.abs(camLook.z-tz)>400){camLook.set(tx,0,tz);camSnap=false;}else{const k=1-Math.exp(-realDt*14);camLook.x+=(tx-camLook.x)*k;camLook.z+=(tz-camLook.z)*k;}
   const tf=Math.tan(camera.fov/2*Math.PI/180),asp=camera.aspect,R=P.range();const want=W<H?Math.max(250,R*2.3+40):Math.max(330,R*2.6+40);
   const target=clamp(W<H?want/(2*tf*asp):want/(2*tf),450,1500);camDist+=(target-camDist)*Math.min(1,(dt||0.016)*2.5);if(Math.abs(camDist-target)>400)camDist=target;
   const el=1.0;const sk=G.shake||0,sx=sk?(Math.random()-0.5)*sk*1.6:0,sz=sk?(Math.random()-0.5)*sk*1.6:0;camera.position.set(camLook.x+sx,camLook.y+camDist*Math.sin(el),camLook.z+camDist*Math.cos(el)+sz);camera.lookAt(camLook.x+sx,0,camLook.z+sz);
@@ -1450,7 +1451,7 @@ function syncScene(dt){const p=G.p;if(curBiome!==G.biome||curArena!==!!G.noCamp)
 }
 const _colCache={};function colorOf(hex){if(!_colCache[hex])_colCache[hex]=new T.Color(hex);return _colCache[hex];}
 let _flashMat=null;function flashMat(){if(!_flashMat)_flashMat=new T.MeshBasicMaterial({color:0xffffff});return _flashMat;}
-function renderFrame(dt){syncScene(dt);renderer.render(scene,camera);drawOverlay();}
+function renderFrame(dt,rdt){realDt=rdt||0.016;syncScene(dt);renderer.render(scene,camera);drawOverlay();}
 
 // ===== 3D extras: bosses, telegraphs, weapon effects, pet, landmarks, overlay =====
 const X={bossMeshes:new Map(),tele:{circle:[],line:[],cone:[],ring:[]},waves:[],metRings:[],petMeshes:[],lairRings:[],throneRing:null,ult:null,ultRing:null,evoPillar:null,evoRing:null,thrust:null,landmarks:null};
@@ -1820,7 +1821,7 @@ window.__fc={g:()=>G,set:f=>f(G),step:dt=>{update(dt);},joy,P,UPG,ORDER,PADS,POS
 function loop(ts){requestAnimationFrame(loop);const dt=Math.min(0.05,Math.max(0,(ts-last)/1000));last=ts;if(!G)return;
   let sdt=dt;if(!paused){if(G.slowT>0){G.slowT-=dt;sdt=dt*0.3;}if(G.hitStop>0){G.hitStop-=dt;sdt=Math.min(sdt,dt*0.12);}update(sdt);if(G.pick.length&&!curPanel&&G.pickDelay<=0&&(!G.p.dead||G.ch)&&!(G.ch&&G.ch.over))showPick();}
   if(G.shake>0)G.shake=Math.max(0,G.shake-dt*22);
-  renderFrame(paused?0:sdt);updateHUD(dt);updateToast(dt);updateBanner(dt);}
+  renderFrame(paused?0:sdt,dt);updateHUD(dt);updateToast(dt);updateBanner(dt);}
 function init(){initRender();resize();newGame();G.live=false;buildWorld();showP(titlePanel);fbInit();requestAnimationFrame(ts=>{last=ts;loop(ts);});}
 function boot(){const fl=document.fonts&&document.fonts.load?Promise.all([document.fonts.load('800 12px "Noto Sans KR"'),document.fonts.load('400 20px "Black Han Sans"')]).catch(()=>{}):Promise.resolve();
   Promise.race([fl,new Promise(r=>setTimeout(r,1500))]).then(init,init);}
