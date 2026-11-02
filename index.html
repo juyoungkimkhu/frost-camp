@@ -680,7 +680,7 @@ const PLAYERISH={p:1,o:1,w:1,m:1,u:1,c:1,x:1,b:1,pet:1,a:1,s:1};
 // who: p player melee, a arrow/orb, s shadow blade, o orbit, w wave, m meteor, u ult, c chain, x corpse boom, b burn, d defense, h hunter, pet
 function hitEnemy(e,dmg,src,who,opt){if(e.hp<=0)return;opt=opt||{};
   if(e.pl){mpHitPlayer(e,dmg,src,who);return;}
-  if(e.boss&&(e.mode==='lair'||e.mode==='throne'||e.mode==='arena')&&!G.duel)return;// den bosses can only be fought inside the den, in the duel
+  if(e.boss&&(e.mode==='lair'||e.mode==='throne')&&!G.duel)return;// den bosses can only be fought inside the den, in the duel
   if(e.sleep)wakeBoss(e);
   let crit=false;
   if(PLAYERISH[who]&&who!=='b'&&who!=='x'){if(Math.random()<P.crit()){dmg*=2.5;crit=true;}}
@@ -1191,7 +1191,7 @@ function nextWave(){const C=G.ch;C.wave++;const w=C.wave,p=G.p;
   const n=Math.min(40,8+Math.round(w*2.4))-(bossWave?6:0);const alive=G.enemies.filter(e=>!e.boss).length;const spawnN=Math.max(6,Math.min(n,85-alive));
   for(let i=0;i<spawnN;i++)chalSpawnOne(w,true);
   if(bossWave&&!C.boss){const a=rnd(0,6.283);const x=clamp(p.x+Math.cos(a)*330,60,WW-60),y=clamp(p.y+Math.sin(a)*330,60,WH-60);const bi=(w/5-1)%BOSSES.length,aw=Math.floor((w/5-1)/BOSSES.length);const b=makeBoss(bi,aw,x,y,'arena',Math.floor(w/5)+1);C.boss=b;
-    banner('WAVE '+w+' · 보스',b.name+' 등장 · 직접 싸운다','raid');sfx('bossroar');startDuel(b);}
+    banner('WAVE '+w+' · 보스',b.name+' 등장','raid');sfx('bossroar');}
   else if(w===1)banner('WAVE 1','사방에서 끝없이 몰려온다 · 한 번 죽으면 끝','rush');
   else if(w%3===1&&w<=BANDS.length*3){banner('WAVE '+w,'새 괴물: '+BANDS[chalBand()].map(t=>mobName(t)).join(', '),'rush');sfx('raid');}
   else{banner('WAVE '+w,C.score>0?'점수 '+fmtN(C.score):'','rush');}}
@@ -2182,7 +2182,7 @@ function rankPanel(){let body;if(!FB.on)body='<p class="desc">온라인 설정�
   return `<h2>챌린지 랭킹</h2><p class="desc">친구들과 최고 점수를 겨루자</p>${body}<button type="button" class="btn sub" data-a="back">닫기</button>`;}
 function openRank(){prevPanel=curPanel;rankRows=null;rankErr='';showP(rankPanel);if(FB.on)rankRead().then(r=>{rankRows=r;if(curPanel===rankPanel)showP(rankPanel);}).catch(e=>{rankErr='랭킹을 못 불러왔어요: '+(e.message||e);if(curPanel===rankPanel)showP(rankPanel);});}
 function confirmPanel(){return `<h2>처음부터 다시?</h2><p class="desc">캠프, 업그레이드, 돈, 유물이 모두 사라진다.</p><button type="button" class="btn gold" data-a="newgame">네, 새로 시작</button><button type="button" class="btn sub" data-a="back">아니오</button>`;}
-function howtoPanel(){return `<h2>게임 방법</h2><div class="row"><span>이동</span><b>화면을 누른 채 끌기 · 공격은 자동</b></div><div class="row"><span>직업</span><b>전사·궁수·마법사·도적 · 공격 방식이 다르다</b></div><div class="row"><span>판매</span><b>고기를 판매대에 내려놓으면 손님이 산다</b></div><div class="row"><span>업그레이드</span><b>바닥 발판 위에 가만히 서 있기</b></div><div class="row"><span>보스</span><b>둥지에 들어가면 결투 시작 · 시점은 자동으로 보스를 향한다 · 드래그 이동, 공격·방어 버튼 (PC: WASD · J/K)</b></div><div class="row"><span>둥지 밖</span><b>둥지·최종 보스는 둥지 안에서만 피해를 입는다</b></div><div class="row"><span>완벽 방어</span><b>맞기 직전에 방어를 누르면 피해 0 · 보스가 휘청인다</b></div><div class="row"><span>죽으면</span><b>캠프에서 깨어나고 보스는 둥지로 돌아간다 · 몇 번이든 재도전</b></div><div class="row"><span>이주</span><b>개척지를 정복하면 무기·유물을 들고 다음 땅으로</b></div><div class="row"><span>챌린지</span><b>웨이브를 버티며 점수 · 레벨업마다 3장 중 1장</b></div><button type="button" class="btn sub" data-a="back">닫기</button>`;}
+function howtoPanel(){return `<h2>게임 방법</h2><div class="row"><span>이동</span><b>화면을 누른 채 끌기 · 공격은 자동</b></div><div class="row"><span>직업</span><b>전사·궁수·마법사·도적 · 공격 방식이 다르다</b></div><div class="row"><span>판매</span><b>고기를 판매대에 내려놓으면 손님이 산다</b></div><div class="row"><span>업그레이드</span><b>바닥 발판 위에 가만히 서 있기</b></div><div class="row"><span>보스</span><b>둥지에 들어가면 결투 시작 · 시점은 자동으로 보스를 향한다 · 드래그 이동, 공격·방어 버튼 (PC: WASD · J/K)</b></div><div class="row"><span>둥지 밖</span><b>둥지·최종 보스는 둥지 안에서만 피해를 입는다</b></div><div class="row"><span>완벽 방어</span><b>맞기 직전에 방어를 누르면 피해 0 · 보스가 휘청인다</b></div><div class="row"><span>죽으면</span><b>캠프에서 깨어나고 보스는 둥지로 돌아간다 · 몇 번이든 재도전</b></div><div class="row"><span>이주</span><b>개척지를 정복하면 무기·유물을 들고 다음 땅으로</b></div><div class="row"><span>챌린지</span><b>쉴 새 없는 웨이브 · 5웨이브마다 보스(자동 전투) · 레벨업마다 3장 중 1장</b></div><button type="button" class="btn sub" data-a="back">닫기</button>`;}
 function relicPanel(){const e=G.pick[0];if(!e.opts)e.opts=rollRelics(e.src);
   let h=`<h2>${e.src==='chest'?'유물 상자':e.src==='throne'?'군주의 유물':'보스의 유물'}</h2><p class="desc">하나를 고르자. 같은 유물을 고르면 더 강해진다.</p><div class="picks">`;
   for(const k of e.opts){const R=RELICS[k],l=rl(k);h+=`<button type="button" class="rc r${R.r}" data-a="relic:${k}"><div class="ri">${R.ico}</div><div class="rt"><span class="rr">${RARITY[R.r]}${l?' · Lv.'+l+' → '+(l+1):''}</span><span class="rn">${R.n}</span><span class="rd">${esc(R.d(l+1))}</span></div></button>`;}
