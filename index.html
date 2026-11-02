@@ -144,6 +144,16 @@ body.chal #cashBox{color:var(--gold)}
 .mode .mh{display:flex;flex-direction:column;gap:1px} .mode .mh b{font-family:var(--display);font-weight:400;font-size:17px;color:#fff;letter-spacing:.02em} .mode .mh small{color:var(--muted);font-size:11px;font-weight:600}
 .mode .ms{font-size:11px;font-weight:700;color:#dff3ff}
 .mode .btn{padding:9px 10px}
+.btn.tiny{padding:6px 10px;font-size:11.5px;box-shadow:none;background:rgba(255,255,255,.05)}
+.online{font-size:11.5px;font-weight:700;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;min-height:16px}
+.online b{color:#cfe9d8}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#6fe39a;box-shadow:0 0 8px rgba(111,227,154,.8);flex:none}
+.dot.off{background:#596a80;box-shadow:none}
+.board{display:flex;flex-direction:column;gap:5px;text-align:left}
+.brow{padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(143,227,255,.1)}
+.brow.me{background:rgba(143,227,255,.12);border-color:var(--edge2)}
+.brow .bh{display:flex;align-items:center;gap:7px;font-size:12.5px} .brow .bh b{color:#fff} .brow .bh small{color:var(--muted);font-weight:700;font-size:11px} .brow .bh em{margin-left:auto;font-style:normal;font-size:10.5px;color:var(--muted);font-weight:700}
+.brow .bl{font-size:11px;color:#dfe9f5;font-weight:700;margin-top:2px} .brow .bl.q{color:var(--gold);font-weight:800}
 .fld{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:800;color:var(--muted)}
 .fld input{font:inherit;font-size:15px;font-weight:700;color:#fff;background:rgba(255,255,255,.07);border:1px solid var(--edge2);border-radius:10px;padding:9px 11px;outline:none;-webkit-user-select:text;user-select:text}
 .fld input:focus{border-color:var(--frost);box-shadow:0 0 0 3px rgba(143,227,255,.18)}
@@ -1291,7 +1301,7 @@ function nickToEmail(n){let h='';for(const b of new TextEncoder().encode(n))h+=b
 function emailToNick(em){try{const h=em.split('@')[0].slice(1);const a=new Uint8Array(h.length/2);for(let i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return new TextDecoder().decode(a);}catch(e){return '?';}}
 function fbInit(){const cfg=window.FIREBASE_CONFIG;if(!cfg||!cfg.apiKey||cfg.apiKey.indexOf('붙여')>=0||!window.firebase){FB.ready=true;return;}
   try{firebase.initializeApp(cfg);FB.auth=firebase.auth();FB.db=firebase.firestore();FB.on=true;
-    FB.auth.onAuthStateChanged(u=>{FB.user=u;FB.nick=u?emailToNick(u.email||''):'';FB.ready=true;onAuthChange(u);});}
+    FB.auth.onAuthStateChanged(u=>{FB.user=u;FB.nick=u?emailToNick(u.email||''):'';FB.ready=true;onAuthChange(u);if(u){FB.statusT=0;presenceStart();}});}
   catch(e){console.warn('firebase init failed',e);FB.ready=true;}}
 function fbErr(e){const c=(e&&e.code)||'';if(c.includes('wrong-password'))return '비밀번호가 틀렸어요';if(c.includes('invalid-credential')||c.includes('invalid-login'))return '닉네임 또는 비밀번호가 틀렸어요. 계정이 없다면 아래에서 새로 만들어요';if(c.includes('user-not-found'))return '그 닉네임은 없어요. 먼저 가입해 주세요';if(c.includes('email-already-in-use'))return '이미 쓰는 닉네임이에요';if(c.includes('weak-password'))return '비밀번호는 6자 이상';if(c.includes('too-many-requests'))return '시도가 너무 많아요. 잠시 후 다시';if(c.includes('network'))return '인터넷 연결을 확인해 주세요';return '실패: '+(e&&e.message||e);}
 function validNick(n){n=(n||'').trim();if(n.length<2||n.length>12)return '닉네임은 2~12자';if(/[\s@\/\\]/.test(n))return '닉네임에 공백은 안 돼요';return null;}
@@ -1303,7 +1313,7 @@ async function signOut(){if(FB.auth)await FB.auth.signOut();}
 function cloudSave(s,force){if(!FB.on||!FB.user)return;const now=Date.now();FB.pending=s;if(!force&&now-FB.lastSave<15000)return;flushCloud();}
 function flushCloud(){if(!FB.on||!FB.user||!FB.pending||FB.busy)return;const s=FB.pending;FB.pending=null;FB.lastSave=Date.now();FB.busy=true;
   const best=chalBest();
-  FB.db.collection('users').doc(FB.user.uid).set({save:JSON.stringify(s),nick:FB.nick,t:s.t,ch:best,updated:Date.now()},{merge:true}).then(()=>{FB.busy=false;FB.synced=Date.now();}).catch(e=>{FB.busy=false;console.warn('cloud save',e);});}
+  FB.db.collection('users').doc(FB.user.uid).set({save:JSON.stringify(s),nick:FB.nick,t:s.t,ch:best,updated:Date.now()},{merge:true}).then(()=>{FB.busy=false;FB.synced=Date.now();}).catch(e=>{FB.busy=false;console.warn('cloud save',e);});statusFromSave(s);}
 async function cloudLoad(){if(!FB.on||!FB.user)return null;const snap=await FB.db.collection('users').doc(FB.user.uid).get();if(!snap.exists)return null;const d=snap.data();
   let save=null;try{save=d.save?JSON.parse(d.save):null;}catch(e){}
   if(d.ch){const b=chalBest();if((d.ch.score||0)>(b.score||0)){try{localStorage.setItem(CH_KEY,JSON.stringify(Object.assign(b,d.ch)));}catch(e){}}}
@@ -1317,6 +1327,22 @@ async function syncAfterLogin(){try{const cloud=await cloudLoad();const local=re
 function rankWrite(r){if(!FB.on||!FB.user)return;const uid=FB.user.uid;const ref=FB.db.collection('scores').doc(uid);
   ref.get().then(s=>{const d=s.exists?s.data():null;if(d&&d.score>=r.score)return;return ref.set({nick:FB.nick,score:r.score,wave:r.wave,cls:r.cls,kills:r.kills,t:Date.now()});}).catch(e=>console.warn('rank',e));}
 async function rankRead(){if(!FB.on)return [];const q=await FB.db.collection('scores').orderBy('score','desc').limit(20).get();const out=[];q.forEach(d=>out.push(Object.assign({uid:d.id},d.data())));return out;}
+
+// ----- public status board (survival), presence heartbeat, multiplayer points -----
+FB.statusT=0;
+function statusDoc(){return FB.db.collection('status').doc(FB.user.uid);}
+function statusWrite(part){if(!FB.on||!FB.user)return;statusDoc().set(Object.assign({nick:FB.nick,lastSeen:Date.now()},part),{merge:true}).catch(e=>console.warn('status',e));}
+// a summary of the survival run, at most once a minute (called from cloudSave)
+function statusFromSave(s){if(!s||!s.up)return;const now=Date.now();if(now-FB.statusT<60000)return;FB.statusT=now;const q=QUESTS&&QUESTS[Math.min(s.q?s.q.i:0,QUESTS.length-1)];
+  statusWrite({cls:s.cls||'warrior',biome:s.biome||0,day:s.day||1,weapon:(s.up.weapon||0),qi:s.q?s.q.i:0,qn:QUESTS?QUESTS.length-1:26,qt:q?q.t:'',bosses:(s.stats&&s.stats.bosses)||0,kills:(s.stats&&s.stats.kills)||0,medals:s.medals||0,earned:(s.stats&&s.stats.earned)||0,updated:now});}
+function presenceStart(){if(FB.presI)return;FB.presI=setInterval(()=>{if(FB.on&&FB.user&&!document.hidden)statusWrite({});},60000);if(FB.on&&FB.user)statusWrite({});}
+async function statusRead(){if(!FB.on)return [];const q=await FB.db.collection('status').orderBy('updated','desc').limit(50).get();const out=[];q.forEach(d=>out.push(Object.assign({uid:d.id},d.data())));return out;}
+async function onlineRead(){if(!FB.on)return [];const since=Date.now()-150000;const q=await FB.db.collection('status').where('lastSeen','>',since).limit(30).get();const out=[];q.forEach(d=>out.push(Object.assign({uid:d.id},d.data())));return out;}
+function isOnline(r){return r&&r.lastSeen&&Date.now()-r.lastSeen<150000;}
+// multiplayer points: raid clears and pvp wins add up; everyone writes only their own row
+function mpRankWrite(d){if(!FB.on||!FB.user)return;const inc=firebase.firestore.FieldValue.increment;const ref=FB.db.collection('mp').doc(FB.user.uid);
+  ref.set({nick:FB.nick,pts:inc(d.pts||0),raids:inc(d.raids||0),pvpW:inc(d.pvpW||0),pvpL:inc(d.pvpL||0),t:Date.now()},{merge:true}).catch(e=>console.warn('mp rank',e));}
+async function mpRankRead(){if(!FB.on)return [];const q=await FB.db.collection('mp').orderBy('pts','desc').limit(20).get();const out=[];q.forEach(d=>out.push(Object.assign({uid:d.id},d.data())));return out;}
 
 // ===== multiplayer: relay client · lobby · host-authoritative raid (up to 4) and pvp (1v1 / 2v2) =====
 // The host's browser runs the whole fight with the same code as single player; other players send inputs and get state.
@@ -1443,11 +1469,11 @@ function mpHostUpdate(dt){const M=G.multi;
     for(const m of G.meteors){m.t+=dt;if(!m.done&&m.t>=m.dur){m.done=true;explode(m.x,m.y,m.rad,m.dmg,'m',0xff8a1f);}}G.meteors=G.meteors.filter(m=>m.t<m.dur+0.05);
     for(const e of G.enemies){if(e.burn>0){e.burn-=dt;e.burnAcc=(e.burnAcc||0)+dt;if(e.burnAcc>=0.5&&e.hp>0){e.burnAcc=0;hitEnemy(e,e.burnD*0.5,e,'b');}}if(e.slow>0)e.slow-=dt;}
     mpRevive(dt);
-    if(M.boss&&M.boss.hp<=0&&!M.over){M.over=true;M.result={win:true,time:M.t};banner('레이드 클리어!',fmtT(M.t)+' · 모두 수고했다','win');sfx('bossdie');mpEvent({k:'banner',a:['레이드 클리어!',fmtT(M.t)+' · 모두 수고했다','win']});setTimeout(()=>{if(G&&G.multi)showP(mpEndPanel);},1800);}}
+    if(M.boss&&M.boss.hp<=0&&!M.over){M.over=true;M.result={win:true,time:M.t};mpAward();banner('레이드 클리어!',fmtT(M.t)+' · 모두 수고했다','win');sfx('bossdie');mpEvent({k:'banner',a:['레이드 클리어!',fmtT(M.t)+' · 모두 수고했다','win']});setTimeout(()=>{if(G&&G.multi)showP(mpEndPanel);},1800);}}
   else{// pvp
     for(const w of G.waves){w.t+=dt;w.r=w.R*Math.min(1,w.t/0.45);}G.waves=G.waves.filter(w=>w.t<0.6);
     mpShotsPvp(dt);
-    if(!M.over){const alive=[0,1].map(t=>M.players.some(o=>o.team===t&&!o.p.dead&&!o.gone));if(!alive[0]||!alive[1]){M.over=true;const win=alive[0]?0:alive[1]?1:-1;M.result={winTeam:win};const txt=win<0?'무승부':(win===0?'🔵 팀A':'🔴 팀B')+' 승리';banner(txt,'결투 종료','win');mpEvent({k:'banner',a:[txt,'결투 종료','win']});setTimeout(()=>{if(G&&G.multi)showP(mpEndPanel);},1800);}}}
+    if(!M.over){const alive=[0,1].map(t=>M.players.some(o=>o.team===t&&!o.p.dead&&!o.gone));if(!alive[0]||!alive[1]){M.over=true;const win=alive[0]?0:alive[1]?1:-1;M.result={winTeam:win};mpAward();const txt=win<0?'무승부':(win===0?'🔵 팀A':'🔴 팀B')+' 승리';banner(txt,'결투 종료','win');mpEvent({k:'banner',a:[txt,'결투 종료','win']});setTimeout(()=>{if(G&&G.multi)showP(mpEndPanel);},1800);}}}
   if(!M.pvp)mpShotsRaid(dt);
   for(const b of G.booms)b.t+=dt;G.booms=G.booms.filter(b=>b.t<0.4);
   for(const z of G.zones){z.t+=dt;z.tick-=dt;if(z.tick<=0){z.tick=0.5;for(const e of G.enemies){if(e.hp<=0||e.boss&&false)continue;if(!e.pl&&dist(e.x,e.y,z.x,z.y)<z.r+e.r)hitEnemy(e,z.dmg,z,'b');}}}G.zones=G.zones.filter(z=>z.t<z.dur);
@@ -1507,7 +1533,7 @@ function mpSnapshot(){const M=G.multi;const pl=M.players.map(o=>({id:o.id,x:+o.p
   const te=G.tele.filter(t=>!t.done).map(t=>({k:t.kind,x:+t.x.toFixed(1),y:+t.y.toFixed(1),r:t.r,a:t.a,len:t.len,w:t.w,t:+t.t.toFixed(2),dur:t.dur,sm:t.small?1:0,wm:t.warm,a0:t.a0,sp:t.spin,arc:t.arc}));
   const sh=G.shots.map(s=>({k:s.kind,x:+s.x.toFixed(1),y:+s.y.toFixed(1),a:+(s.a||0).toFixed(2),z:+(s.z||0).toFixed(1),bk:s.back?1:0}));
   const fx=M.fxQ.slice(0,30);const ev=M.evQ.slice();const bm=G.booms.filter(b=>b.t<0.06).map(b=>({x:b.x,y:b.y,r:b.r,c:b.col}));
-  return {t:'s',tm:+M.t.toFixed(2),pl,en,te,sh,fx,ev,bm,ag:M.aggro?M.aggro.id:0,ov:M.over?1:0};}
+  return {t:'s',tm:+M.t.toFixed(2),pl,en,te,sh,fx,ev,bm,ag:M.aggro?M.aggro.id:0,ov:M.over?1:0,rs:M.over?M.result:null};}
 function mpApplySnap(s){const M=G.multi;M.snapT=0;
   for(const q of s.pl){const pl=M.byId[q.id];if(!pl)continue;const mine=pl===M.me;pl.ent.maxHp=q.mhp;pl.p.hp=q.hp;pl.duel.stam=q.st;pl.reviveP=q.rv;
     const wasDead=pl.p.dead;pl.p.dead=!!q.dd;if(mine&&!wasDead&&pl.p.dead){toast('쓰러졌다… 동료가 일으켜 줄 때까지 버티자','bad');sfx('dead');}
@@ -1525,7 +1551,11 @@ function mpApplySnap(s){const M=G.multi;M.snapT=0;
   G.shots=s.sh.map(q=>({kind:q.k,x:q.x,y:q.y,a:q.a,z:q.z,back:!!q.bk,trail:null}));
   for(const f of s.fx)if(G.fx.length<70)G.fx.push({x:f.x,y:f.y,text:f.text,col:f.col,t:0,s:f.s,k:f.k,vx:0});
   for(const b of s.bm)G.booms.push({x:b.x,y:b.y,r:b.r,t:0,col:b.c});
-  mpApplyEvents(s.ev);M.aggroId=s.ag;if(s.ov&&!M.over){M.over=true;setTimeout(()=>{if(G&&G.multi)showP(mpEndPanel);},1800);}}
+  mpApplyEvents(s.ev);M.aggroId=s.ag;if(s.ov&&!M.over){M.over=true;M.result=s.rs||{};mpAward();setTimeout(()=>{if(G&&G.multi)showP(mpEndPanel);},1800);}}
+// points for the multiplayer board: each player writes only their own row
+function mpAward(){const M=G.multi;if(!M||M.awarded||!FB.user)return;M.awarded=true;const r=M.result||{};
+  if(!M.pvp){if(r.win){const t=r.time||M.t;mpRankWrite({pts:100+Math.max(0,Math.round((300-t)/3)),raids:1});}}
+  else{const win=r.winTeam;if(win===M.me.team)mpRankWrite({pts:M.mode==='pvp2'?40:50,pvpW:1});else if(win>=0)mpRankWrite({pts:5,pvpL:1});}}
 function mpApplyEvents(ev){for(const e of ev){if(e.k==='banner')banner(e.a[0],e.a[1],e.a[2]);else if(e.k==='toast')toast(e.m,e.t);else if(e.k==='sfx')sfx(e.s);else if(e.k==='aggro'){if(e.id===MP.id){toast('보스가 당신을 노린다!','warn');}}}}
 function mpClientUpdate(dt){const M=G.multi;M.snapT+=dt;
   // my own movement is predicted locally; hits/hp come from the host
@@ -2089,7 +2119,7 @@ function updateBanner(dt){if(bnT>0){bnT-=dt;if(bnT<=0)bnEl.hidden=true;return;}i
 function flashScreen(el){const f=$('flash');f.style.setProperty('--fc',{fire:'rgba(255,140,60,.9)',ice:'rgba(160,235,255,.9)',bolt:'rgba(255,240,140,.9)'}[el]||'rgba(255,255,255,.95)');f.classList.remove('on');void f.offsetWidth;f.classList.add('on');}
 // ===== panels =====
 const overlay=$('overlay'),panel=$('panel');let curPanel=null,prevPanel=null,pendingMode=null;
-function showP(fn){curPanel=fn;panel.innerHTML=fn();overlay.hidden=false;paused=true;panel.scrollTop=0;}
+function showP(fn){curPanel=fn;panel.innerHTML=fn();overlay.hidden=false;paused=true;panel.scrollTop=0;if(fn===titlePanel&&typeof onlineTick==='function')onlineTick();}
 function closePanel(){overlay.hidden=true;curPanel=null;panel.innerHTML='';if(G&&G.live)paused=false;}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function ladderHtml(){const i0=G.q.i,N=QUESTS.length;let h='<div class="ladder">';
@@ -2105,13 +2135,31 @@ function accountLine(){if(!FB.on)return '<p class="acct off">오프라인 · 저
   return `<p class="acct"><button type="button" class="link big" data-a="login">로그인 / 가입</button> 하면 어떤 기기에서도 이어서 할 수 있어요</p>`;}
 function titlePanel(){const sv=readLocal();const best=chalBest();return `<div class="title"><div class="logo"><span>눈보라 캠프</span></div><div class="tag">HUNT · SELL · CONQUER</div>${accountLine()}
   <div class="modes">
-    <div class="mode"><div class="mh"><b>서바이벌</b><small>캠프를 키우고 보스를 정복</small></div>${sv?`<div class="ms">${esc(CLASSES[sv.cls||'warrior'].ico+' '+CLASSES[sv.cls||'warrior'].n)} · ${esc(biomeName(sv.biome||0))} · ${sv.day||1}일차</div><button type="button" class="btn" data-a="resume">이어하기</button><button type="button" class="btn sub" data-a="confirmnew">처음부터</button>`:`<button type="button" class="btn" data-a="newgame">시작하기</button>`}</div>
-    <div class="mode"><div class="mh"><b>챌린지</b><small>몰려오는 웨이브 · 한 번 죽으면 끝</small></div>${best.score?`<div class="ms">최고 ${fmtN(best.score)}점 · ${best.wave}웨이브</div>`:'<div class="ms">아직 기록 없음</div>'}<button type="button" class="btn gold" data-a="chal">도전하기</button></div>
+    <div class="mode"><div class="mh"><b>서바이벌</b><small>캠프를 키우고 보스를 정복</small></div>${sv?`<div class="ms">${esc(CLASSES[sv.cls||'warrior'].ico+' '+CLASSES[sv.cls||'warrior'].n)} · ${esc(biomeName(sv.biome||0))} · ${sv.day||1}일차</div><button type="button" class="btn" data-a="resume">이어하기</button><button type="button" class="btn sub" data-a="confirmnew">처음부터</button>`:`<button type="button" class="btn" data-a="newgame">시작하기</button>`}<button type="button" class="btn sub tiny" data-a="status">모두의 현황</button></div>
+    <div class="mode"><div class="mh"><b>챌린지</b><small>몰려오는 웨이브 · 한 번 죽으면 끝</small></div>${best.score?`<div class="ms">최고 ${fmtN(best.score)}점 · ${best.wave}웨이브</div>`:'<div class="ms">아직 기록 없음</div>'}<button type="button" class="btn gold" data-a="chal">도전하기</button><button type="button" class="btn sub tiny" data-a="rank">챌린지 랭킹</button></div>
   </div>
-  <div class="mode"><div class="mh"><b>멀티플레이</b><small>친구와 협동 레이드(4인) · PvP 1v1 · 2v2</small></div><button type="button" class="btn" style="background:linear-gradient(180deg,#e3b8ff,#9b6bdf);color:#1e0a3a;box-shadow:0 4px 0 #5c3a99" data-a="mp">${mpUrl()?'같이 하기':'서버 설정 필요'}</button></div>
-  <div class="btns"><button type="button" class="btn sub" data-a="rank">랭킹</button><button type="button" class="btn sub" data-a="howto">게임 방법</button></div>
+  <div class="mode"><div class="mh"><b>멀티플레이</b><small>친구와 협동 레이드(4인) · PvP 1v1 · 2v2</small></div><button type="button" class="btn" style="background:linear-gradient(180deg,#e3b8ff,#9b6bdf);color:#1e0a3a;box-shadow:0 4px 0 #5c3a99" data-a="mp">${mpUrl()?'같이 하기':'서버 설정 필요'}</button><button type="button" class="btn sub tiny" data-a="mprank">멀티 랭킹</button></div>
+  <div id="onlineBox" class="online">${onlineHtml()}</div>
+  <button type="button" class="btn sub" data-a="howto">게임 방법</button>
   <p class="credit">화면을 누른 채 끌면 이동 · 공격은 자동</p></div>`;}
 let loginMode='in',loginMsg='';
+// who is online right now (anyone logged in with the game open in the last ~2 minutes)
+let onlineRows=null,onlineT=0;
+function onlineHtml(){if(!FB.on)return '';if(onlineRows===null)return '<span class="dot"></span>접속자 확인 중…';const me=FB.user&&FB.user.uid;const names=onlineRows.filter(r=>r.uid!==me).map(r=>esc(r.nick||'?'));const n=onlineRows.length;
+  if(!n)return '<span class="dot off"></span>지금 접속한 사람 없음';return '<span class="dot"></span>접속 중 <b>'+n+'명</b>'+(names.length?' · '+names.slice(0,6).join(', ')+(names.length>6?' 외 '+(names.length-6)+'명':''):(FB.user?' · 나':''));}
+function onlineTick(){if(!FB.on||document.hidden)return;onlineRead().then(r=>{onlineRows=r;const el=$('onlineBox');if(el&&curPanel===titlePanel)el.innerHTML=onlineHtml();}).catch(()=>{});}
+setInterval(onlineTick,30000);
+let statusRows=null,statusErr='';
+function statusPanel(){let body;if(!FB.on)body='<p class="desc">온라인 설정이 없어 현황을 볼 수 없어요.</p>';else if(statusRows===null)body='<p class="desc">불러오는 중…</p>';else if(statusErr)body=`<p class="desc err">${esc(statusErr)}</p>`;else if(!statusRows.length)body='<p class="desc">아직 아무도 기록이 없어요. 로그인하고 한 판 하면 여기에 올라와요.</p>';
+  else body='<div class="board">'+statusRows.map(r=>{const C=CLASSES[r.cls]||CLASSES.warrior;const on=isOnline(r);const me=FB.user&&r.uid===FB.user.uid;return `<div class="brow${me?' me':''}"><div class="bh"><span class="dot${on?'':' off'}"></span><b>${esc(r.nick||'?')}</b><small>${C.ico} ${C.n}${r.medals?' · 훈장 '+r.medals:''}</small><em>${on?'접속 중':ago(r.lastSeen||r.updated)}</em></div><div class="bl">${esc(biomeName(r.biome||0))} · ${r.day||1}일차 · 무기 Lv.${r.weapon||0} · 보스 ${r.bosses||0}</div><div class="bl q">목표 ${Math.min((r.qi||0)+1,r.qn||26)}/${r.qn||26} · ${esc(r.qt||'')}</div></div>`;}).join('')+'</div>';
+  return `<h2>서바이벌 현황</h2><p class="desc">가입한 모두의 캠프가 지금 어디까지 왔는지</p>${body}<button type="button" class="btn sub" data-a="back">닫기</button>`;}
+function ago(t){if(!t)return '';const s=(Date.now()-t)/1000;if(s<90)return '방금';if(s<3600)return Math.floor(s/60)+'분 전';if(s<86400)return Math.floor(s/3600)+'시간 전';return Math.floor(s/86400)+'일 전';}
+function openStatus(){prevPanel=curPanel;statusRows=null;statusErr='';showP(statusPanel);if(FB.on)statusRead().then(r=>{statusRows=r;if(curPanel===statusPanel)showP(statusPanel);}).catch(e=>{statusErr='불러오지 못했어요: '+(e.message||e);if(curPanel===statusPanel)showP(statusPanel);});}
+let mpRows=null,mpRankErr='';
+function mpRankPanel(){let body;if(!FB.on)body='<p class="desc">온라인 설정이 없어 랭킹을 볼 수 없어요.</p>';else if(mpRows===null)body='<p class="desc">불러오는 중…</p>';else if(mpRankErr)body=`<p class="desc err">${esc(mpRankErr)}</p>`;else if(!mpRows.length)body='<p class="desc">아직 기록이 없어요. 레이드를 깨거나 결투에서 이기면 점수가 쌓여요.</p>';
+  else body='<div class="ranks">'+mpRows.map((r,i)=>`<div class="rank${FB.user&&r.uid===FB.user.uid?' me':''}"><b>${i+1}</b><span>${esc(r.nick||'?')}</span><small>레이드 ${r.raids||0} · PvP ${r.pvpW||0}승 ${r.pvpL||0}패</small><em>${fmtN(r.pts||0)}</em></div>`).join('')+'</div>';
+  return `<h2>멀티 랭킹</h2><p class="desc">레이드 클리어 +100 (빠를수록 보너스) · PvP 승리 +50 (2v2는 +40) · 패배 +5</p>${body}<button type="button" class="btn sub" data-a="back">닫기</button>`;}
+function openMpRank(){prevPanel=curPanel;mpRows=null;mpRankErr='';showP(mpRankPanel);if(FB.on)mpRankRead().then(r=>{mpRows=r;if(curPanel===mpRankPanel)showP(mpRankPanel);}).catch(e=>{mpRankErr='불러오지 못했어요: '+(e.message||e);if(curPanel===mpRankPanel)showP(mpRankPanel);});}
 function loginPanel(){return `<h2>${loginMode==='in'?'로그인':'새 계정 만들기'}</h2><p class="desc">닉네임과 비밀번호만 있으면 돼요. 이메일은 필요 없어요.</p>
   <label class="fld"><span>닉네임</span><input id="inNick" maxlength="12" autocomplete="username" placeholder="2~12자"></label>
   <label class="fld"><span>비밀번호</span><input id="inPw" type="password" maxlength="40" autocomplete="${loginMode==='in'?'current-password':'new-password'}" placeholder="6자 이상"></label>
@@ -2168,6 +2216,8 @@ function handleAction(a){switch(a[0]){
   case 'totitle':toTitle();break;
   case 'giveup':if(G.ch&&!G.ch.over){G.p.hp=0;G.p.dead=true;onChalDeath();closePanel();}break;
   case 'rank':openRank();break;
+  case 'status':openStatus();break;
+  case 'mprank':openMpRank();break;
   case 'login':prevPanel=curPanel;loginMsg='';showP(loginPanel);setTimeout(()=>{const i=$('inNick');if(i)i.focus();},50);break;
   case 'toggleLogin':loginMode=loginMode==='in'?'up':'in';loginMsg='';{const n=$('inNick')?$('inNick').value:'';showP(loginPanel);if(n&&$('inNick'))$('inNick').value=n;}break;
   case 'dologin':doLogin();break;
@@ -2186,6 +2236,7 @@ async function doLogin(){const nick=($('inNick')||{}).value||'',pw=($('inPw')||{
 function onAuthChange(u){if(curPanel===titlePanel)showP(titlePanel);if(!u)return;syncOnce().then(how=>{if(curPanel===titlePanel)showP(titlePanel);if(how==='cloud'&&G&&G.live&&!G.ch)toast('클라우드에 더 최신 저장이 있어요 · 타이틀에서 이어하기','warn');});}
 function startNew(clsKey){try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(OLD_KEY);}catch(e){}newGame(0,{cls:clsKey});startGame();G.live=true;save(true);}
 function startGame(){G.live=true;buildWorld();closePanel();paused=false;joy.id=null;joy.dx=joy.dy=0;$('joy').hidden=true;}
+function titleShown(){onlineTick();}
 function toTitle(){if(G&&G.live&&!G.ch&&!G.multi)save(true);if(G&&G.multi){G.multi=null;}const keepCls=G?G.cls:'warrior';newGame(0,{cls:keepCls});G.live=false;buildWorld();prevPanel=null;showP(titlePanel);}
 // ===== audio: one master bus (compressor) · layered hits · ambient pad · boss drone =====
 let AC=null,muted=false,sfxT={},MASTER=null,AMB=null,DRONE=null,musicOn=true;
